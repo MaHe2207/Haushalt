@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f7f2" />
-  <title>Haushaltsmarkt</title>
+  <title>Unser Haushalt</title>
   <style>
     :root{
       --bg:#f7f7f2;--panel:#ffffff;--ink:#20231f;--muted:#72776f;--line:#e4e6df;
@@ -44,15 +44,11 @@
     .meta{color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:7px 10px;margin:6px 0 14px}
     .pill{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;background:#f1f2ed;color:#4f554e}
     .pill.due{background:var(--warn-soft);color:var(--warn)}
-    .pill.market{background:var(--accent-soft);color:var(--accent)}
-    .pill.assigned{background:#ece8fb;color:#5c4c9d}
-    .pill.exclusive{background:#e9eef8;color:#365b91}
+    .pill.overdue{background:var(--danger-soft);color:var(--danger)}
+    .pill.points{background:var(--accent-soft);color:var(--accent)}
     .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-    .auction-box{background:#fafaf7;border:1px solid var(--line);border-radius:14px;padding:13px;margin-top:12px}
-    .auction-price{font-size:29px;font-weight:900;letter-spacing:-.04em;margin:2px 0}
-    .turn{font-weight:800;margin-top:8px}
-    .inline-form{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
-    .inline-form input{width:130px}
+    .points-box{background:#fafaf7;border:1px solid var(--line);border-radius:14px;padding:13px;margin-top:12px}
+    .points-value{font-size:31px;font-weight:900;letter-spacing:-.04em;margin:2px 0}
     .empty{border:1px dashed #cfd3c9;border-radius:20px;padding:34px 20px;text-align:center;color:var(--muted);background:rgba(255,255,255,.45)}
     .empty strong{display:block;color:var(--ink);margin-bottom:6px}
     .task-list{display:flex;flex-direction:column;gap:10px}
@@ -70,16 +66,15 @@
     label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800;color:#555b54}.full{grid-column:1/-1}
     input,select{width:100%;border:1px solid #cfd3c9;border-radius:11px;background:white;color:var(--ink);padding:11px 12px;outline:none}
     input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-    .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;flex-wrap:wrap}
     .hint{font-size:13px;color:var(--muted);line-height:1.45}
-    .price-history{font-size:13px;color:var(--muted);margin-top:9px}
     .sync-card{margin-top:20px}
     .sync-card .sync-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .code-row{display:flex;gap:8px;align-items:flex-end}.code-row label{flex:1}
     .danger-zone{margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
     footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
     @media(max-width:720px){
-      .grid,.balance-wrap{grid-template-columns:1fr}.app{padding:16px 12px 90px}header{align-items:flex-start;flex-direction:column}.header-right{justify-content:flex-start}.score-mini{align-self:flex-start}nav{top:4px}.task-row{align-items:flex-start;flex-direction:column}.row-actions{justify-content:flex-start}.modal-grid{grid-template-columns:1fr}.full{grid-column:auto}.ledger{display:block;overflow-x:auto;white-space:nowrap}
+      .grid,.balance-wrap{grid-template-columns:1fr}.app{padding:16px 12px 90px}header{align-items:flex-start;flex-direction:column}.header-right{justify-content:flex-start}.score-mini{align-self:flex-start}nav{top:4px}.task-row{align-items:flex-start;flex-direction:column}.row-actions{justify-content:flex-start}.modal-grid{grid-template-columns:1fr}.full{grid-column:auto}.ledger{display:block;overflow-x:auto;white-space:nowrap}.actions .btn{flex:1 1 42%}
     }
   </style>
 </head>
@@ -87,8 +82,8 @@
 <div class="app">
   <header>
     <div>
-      <h1>Haushaltsmarkt</h1>
-      <div class="subtitle">Sarah & Marcel · Hausarbeit bekommt ihren Marktpreis.</div>
+      <h1>Unser Haushalt</h1>
+      <div class="subtitle">Sarah & Marcel · Aufgaben, Punkte und gemeinsamer Saldo.</div>
     </div>
     <div class="header-right"><button class="sync-pill" id="syncStatus" type="button">● Lokal</button><div class="score-mini" id="scoreMini">Saldo 0</div></div>
   </header>
@@ -128,7 +123,7 @@
         <div class="card balance-card"><div class="name">Sarah</div><div id="sarahBalance" class="balance">0</div></div>
         <div class="card balance-card"><div class="name">Marcel</div><div id="marcelBalance" class="balance">0</div></div>
       </div>
-      <div class="card"><strong>So liest du den Saldo:</strong><p class="hint">Ein positiver Wert bedeutet, dass diese Person netto mehr Arbeit übernommen hat. Der gemeinsame Saldo bleibt immer null.</p></div>
+      <div class="card"><strong>So liest du den Saldo:</strong><p class="hint">Ein positiver Wert bedeutet, dass diese Person netto mehr Aufgabenpunkte übernommen hat. Der gemeinsame Saldo bleibt immer null.</p></div>
     </section>
 
     <section id="page-history" class="page">
@@ -137,7 +132,7 @@
     </section>
   </main>
 
-  <footer id="footerStatus">V0.2 · Lokale Speicherung aktiv.</footer>
+  <footer id="footerStatus">V0.3 · Lokale Speicherung aktiv.</footer>
 </div>
 
 <dialog id="taskDialog">
@@ -145,11 +140,9 @@
     <h2 id="taskDialogTitle">Aufgabe anlegen</h2>
     <div class="modal-grid">
       <label class="full">Name<input id="taskName" required maxlength="80" placeholder="z. B. Staubsaugen"></label>
-      <label>Typ<select id="taskType"><option value="market">Marktaufgabe</option><option value="exclusive">Exklusive Aufgabe</option></select></label>
-      <label>Intervall (Tage)<input id="taskInterval" type="number" min="1" step="1" value="7" required></label>
-      <label class="full">Nächste Fälligkeit<input id="taskDue" type="date" required></label>
-      <label id="exclusiveOwnerLabel">Zuständig<select id="taskOwner"><option>Sarah</option><option>Marcel</option></select></label>
-      <label id="exclusivePriceLabel">Referenzpreis<input id="taskPrice" type="number" min="0" step="1" value="10"></label>
+      <label>Punkte<input id="taskPoints" type="number" min="0" step="1" value="10" required></label>
+      <label>Intervall in Tagen <span class="hint">optional · leer = einmalig</span><input id="taskInterval" type="number" min="1" step="1" placeholder="z. B. 7"></label>
+      <label class="full">Nächste Fälligkeit <span class="hint">optional</span><input id="taskDue" type="date"></label>
     </div>
     <input type="hidden" id="taskId">
     <div class="modal-actions"><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" id="saveTaskBtn" value="default">Speichern</button></div>
@@ -159,22 +152,10 @@
 <dialog id="dateDialog">
   <form method="dialog" class="modal" id="dateForm">
     <h2>Fälligkeit ändern</h2>
-    <label>Neues Datum<input id="newDueDate" type="date" required></label>
+    <label>Neues Datum<input id="newDueDate" type="date"></label>
+    <p class="hint">Bei einer Aufgabe ohne Intervall wird die Fälligkeit nach dem Erledigen wieder geleert. Du kannst hier jederzeit ein neues Datum setzen.</p>
     <input type="hidden" id="dateTaskId">
-    <div class="modal-actions"><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" id="saveDateBtn" value="default">Speichern</button></div>
-  </form>
-</dialog>
-
-<dialog id="auctionDialog">
-  <form method="dialog" class="modal" id="auctionForm">
-    <h2>Auktion starten</h2>
-    <p class="hint" id="auctionTaskName"></p>
-    <div class="modal-grid">
-      <label>Wer startet?<select id="auctionStarter"><option>Sarah</option><option>Marcel</option></select></label>
-      <label>Erstes Gebot<input id="auctionStartBid" type="number" min="0" step="1" value="10" required></label>
-    </div>
-    <input type="hidden" id="auctionTaskId">
-    <div class="modal-actions"><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" id="startAuctionBtn" value="default">Starten</button></div>
+    <div class="modal-actions"><button class="btn danger" type="button" id="clearDateBtn">Fälligkeit entfernen</button><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" id="saveDateBtn" value="default">Speichern</button></div>
   </form>
 </dialog>
 
@@ -202,7 +183,7 @@
 <script>
 (() => {
   const PLAYERS = ['Sarah','Marcel'];
-  const AUCTION_LEAD_DAYS = 3;
+  // Absichtlich dieselben Storage-Keys wie V0.2: bestehende Geräte behalten Sync-Zugang und Spielstand.
   const STORAGE_KEY = 'haushaltsmarkt_v01';
   const SYNC_CONFIG_KEY = 'haushaltsmarkt_sync_v02';
   const SYNC_POLL_MS = 4000;
@@ -215,18 +196,53 @@
   const other = name => name === 'Sarah' ? 'Marcel' : 'Sarah';
   const esc = s => String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
+  function defaultState(){ return { tasks:[], balances:{Sarah:0,Marcel:0}, history:[] }; }
+
+  // Migriert alte V0.1/V0.2-Daten automatisch in das neue, vereinfachte Aufgabenmodell.
+  function normalizeState(raw){
+    const base=defaultState();
+    if(!raw || typeof raw!=='object') return base;
+    base.balances.Sarah=Number(raw.balances?.Sarah)||0;
+    base.balances.Marcel=Number(raw.balances?.Marcel)||0;
+    base.history=Array.isArray(raw.history)?raw.history.map(h=>({
+      id:h.id||uid(), taskId:h.taskId||'', taskName:h.taskName||'Aufgabe', player:PLAYERS.includes(h.player)?h.player:'Sarah',
+      points:Number.isFinite(Number(h.points))?Math.max(0,Math.trunc(Number(h.points))):0,
+      completedDate:h.completedDate||todayISO()
+    })):[];
+    const latestPointsFor=id=>{
+      const hit=[...base.history].reverse().find(h=>h.taskId===id);
+      return hit ? hit.points : null;
+    };
+    base.tasks=Array.isArray(raw.tasks)?raw.tasks.map(t=>{
+      let points=Number(t.points);
+      if(!Number.isInteger(points)||points<0){
+        const fixed=Number(t.fixedPrice), assigned=Number(t.assignment?.price), hist=latestPointsFor(t.id);
+        if(Number.isInteger(fixed)&&fixed>=0) points=fixed;
+        else if(Number.isInteger(assigned)&&assigned>=0) points=assigned;
+        else if(Number.isInteger(hist)&&hist>=0) points=hist;
+        else points=10;
+      }
+      const interval=Number(t.intervalDays);
+      return {
+        id:t.id||uid(), name:String(t.name||'Aufgabe'), points,
+        intervalDays:Number.isInteger(interval)&&interval>0?interval:null,
+        dueDate:t.dueDate||null, lastCompleted:t.lastCompleted||null
+      };
+    }):[];
+    return base;
+  }
+
+  function load(){
+    try{ return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY))); }
+    catch{ return defaultState(); }
+  }
+
   let state = load();
   let syncConfig = loadSyncConfig();
   const syncRuntime = { online:false, revision:null, pushing:false, dirty:false, timer:null, lastError:null };
 
-  function defaultState(){ return { tasks:[], balances:{Sarah:0,Marcel:0}, history:[] }; }
-  function load(){
-    try{
-      const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return parsed && parsed.tasks && parsed.balances && parsed.history ? parsed : defaultState();
-    }catch{ return defaultState(); }
-  }
   function save({remote=true}={}){
+    state=normalizeState(state);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     render();
     if(remote && syncRuntime.online) queueRemotePush();
@@ -242,10 +258,9 @@
     const el=$('#syncStatus'); el.className='sync-pill '+(mode||''); el.textContent=text;
     $('#syncHint').textContent = syncRuntime.online ? `Online verbunden · Raum ${syncConfig.room.slice(0,6)}… · automatische Aktualisierung` : 'Aktuell nur auf diesem Gerät gespeichert.';
     $('#syncSettingsBtn').textContent = syncRuntime.online ? 'Sync-Einstellungen' : 'Online-Sync einrichten';
-    $('#footerStatus').textContent = syncRuntime.online ? 'V0.2 · Gemeinsamer Spielstand aktiv · lokale Sicherung bleibt erhalten.' : 'V0.2 · Lokale Speicherung aktiv.';
+    $('#footerStatus').textContent = syncRuntime.online ? 'V0.3 · Gemeinsamer Spielstand aktiv · lokale Sicherung bleibt erhalten.' : 'V0.3 · Lokale Speicherung aktiv.';
   }
   function generateRoomCode(){ const a=new Uint8Array(16); crypto.getRandomValues(a); return [...a].map(x=>x.toString(16).padStart(2,'0')).join(''); }
-  function stateHasContent(){ return state.tasks.length>0 || state.history.length>0 || state.balances.Sarah!==0 || state.balances.Marcel!==0; }
 
   async function apiFetch(url, options={}){
     const res=await fetch(url,{...options,headers:{...syncHeaders(),...(options.headers||{})}});
@@ -270,7 +285,7 @@
       if(!row){
         try{ row=await createRemoteRow(); }catch(err){ row=await fetchRemoteRow(); if(!row) throw err; }
       }
-      if(row){ state=row.state||defaultState(); syncRuntime.revision=Number(row.revision||0); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
+      if(row){ state=normalizeState(row.state); syncRuntime.revision=Number(row.revision||0); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
       syncRuntime.online=true; syncRuntime.lastError=null; startPolling(); render(); setSyncStatus('online','● Online');
       if(!quiet) $('#syncDialog').close();
     }catch(err){
@@ -284,7 +299,7 @@
     if(!syncRuntime.online || syncRuntime.pushing || syncRuntime.dirty) return;
     try{
       const row=await fetchRemoteRow(); if(!row) return; const rev=Number(row.revision||0);
-      if(syncRuntime.revision===null || rev>syncRuntime.revision){ state=row.state||defaultState(); syncRuntime.revision=rev; localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); render(); setSyncStatus('online','● Online'); }
+      if(syncRuntime.revision===null || rev>syncRuntime.revision){ state=normalizeState(row.state); syncRuntime.revision=rev; localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); render(); setSyncStatus('online','● Online'); }
     }catch(err){ syncRuntime.lastError=err.message; setSyncStatus('error','● Sync-Fehler'); }
   }
   function queueRemotePush(){ syncRuntime.dirty=true; pushRemoteLoop(); }
@@ -298,7 +313,7 @@
         const rows=await apiFetch(roomEndpoint(q),{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify({state:snapshot,revision:next,updated_at:new Date().toISOString()})});
         if(!Array.isArray(rows)||rows.length===0){
           const row=await fetchRemoteRow();
-          if(row){ state=row.state||defaultState(); syncRuntime.revision=Number(row.revision||0); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); render(); }
+          if(row){ state=normalizeState(row.state); syncRuntime.revision=Number(row.revision||0); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); render(); }
           syncRuntime.dirty=false; alert('Der Spielstand wurde gleichzeitig auf dem anderen Gerät geändert. Die neuere Online-Version wurde geladen. Bitte führe deine Aktion bei Bedarf erneut aus.');
           break;
         }
@@ -309,16 +324,7 @@
     finally{ syncRuntime.pushing=false; if(syncRuntime.dirty && syncRuntime.online) pushRemoteLoop(); }
   }
 
-  function auctionStartDate(task){ return addDays(task.dueDate, -AUCTION_LEAD_DAYS); }
-
-  function taskStatus(task){
-    if(task.assignment) return 'assigned';
-    if(task.auction) return 'auction';
-    if(task.dueDate <= todayISO()) return 'due';
-    if(task.type === 'market' && auctionStartDate(task) <= todayISO()) return 'auction-ready';
-    return 'upcoming';
-  }
-
+  function isDue(task){ return !!task.dueDate && task.dueDate<=todayISO(); }
   function render(){ renderHeader(); renderToday(); renderTasks(); renderBalances(); renderHistory(); if(syncRuntime.online) setSyncStatus(syncRuntime.pushing?'syncing':'online',syncRuntime.pushing?'● Sync…':'● Online'); else if(syncRuntime.lastError) setSyncStatus('error','● Sync-Fehler'); else setSyncStatus('','● Lokal'); }
   function renderHeader(){
     $('#todayDate').textContent = fmtDate(todayISO());
@@ -328,45 +334,36 @@
 
   function renderToday(){
     const container=$('#todayGrid');
-    const relevant=state.tasks.filter(t=>['due','auction-ready','auction','assigned'].includes(taskStatus(t))).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
-    if(!relevant.length){ container.innerHTML='<div class="empty" style="grid-column:1/-1"><strong>Nichts offen.</strong>Marktaufgaben erscheinen 3 Tage vor Fälligkeit zur Auktion; exklusive Aufgaben am Fälligkeitstag.</div>'; return; }
+    const relevant=state.tasks.filter(isDue).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||'') || a.name.localeCompare(b.name,'de',{sensitivity:'base'}));
+    if(!relevant.length){ container.innerHTML='<div class="empty" style="grid-column:1/-1"><strong>Heute ist nichts fällig.</strong>Aufgaben erscheinen hier ab ihrem Fälligkeitstag und bleiben sichtbar, bis sie erledigt werden.</div>'; return; }
     container.innerHTML=relevant.map(todayCard).join('');
     bindDynamic();
   }
 
   function todayCard(t){
-    const status=taskStatus(t);
-    const timing = t.type==='market' ? `<span>Auktion ab ${fmtDate(auctionStartDate(t))}</span>` : '';
-    const base=`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h3>${esc(t.name)}</h3><div class="meta"><span>fällig ${fmtDate(t.dueDate)}</span>${timing}<span>alle ${t.intervalDays} Tage</span></div></div><span class="pill ${t.type==='market'?'market':'exclusive'}">${t.type==='market'?'Markt':'Exklusiv'}</span></div>`;
-    if(t.type==='exclusive'){
-      return base+`<div class="auction-box"><div class="hint">Zuständig</div><strong>${esc(t.owner)}</strong><div class="auction-price">${t.fixedPrice} Punkte</div></div><div class="actions"><button class="btn complete" data-id="${t.id}" data-player="${esc(t.owner)}" data-price="${t.fixedPrice}">Erledigt</button><button class="btn warn notdone-exclusive" data-id="${t.id}">Nicht gemacht</button><button class="btn ghost due-edit" data-id="${t.id}">Fälligkeit ändern</button></div></div>`;
-    }
-    if(status==='due' || status==='auction-ready'){
-      const notice = status==='auction-ready' ? '<span class="pill">Auktionsfenster offen</span>' : '<span class="pill due">Fällig</span>';
-      return base+`${notice}${priceHistory(t)}<div class="actions"><button class="btn auction-open" data-id="${t.id}">Auktion starten</button><button class="btn ghost due-edit" data-id="${t.id}">Fälligkeit ändern</button></div></div>`;
-    }
-    if(status==='auction'){
-      const a=t.auction;
-      const next=other(a.lastBidder);
-      return base+`<div class="auction-box"><div class="hint">Aktuelles Gebot von ${esc(a.lastBidder)}</div><div class="auction-price">${a.currentBid} Punkte</div><div class="turn">${esc(next)} ist am Zug</div><div class="inline-form"><input class="next-bid" data-id="${t.id}" type="number" min="0" max="${Math.max(0,a.currentBid-1)}" step="1" placeholder="niedriger"><button class="btn small bid" data-id="${t.id}">Bieten</button><button class="btn ghost small pass" data-id="${t.id}">Passen</button></div></div><div class="actions"><button class="btn ghost due-edit" data-id="${t.id}">Fälligkeit ändern</button></div></div>`;
-    }
-    const x=t.assignment;
-    return base+`<div class="auction-box"><div class="hint">Vergeben an</div><strong>${esc(x.player)}</strong><div class="auction-price">${x.price} Punkte</div></div><div class="actions"><button class="btn complete" data-id="${t.id}" data-player="${esc(x.player)}" data-price="${x.price}">Erledigt</button><button class="btn warn notdone-market" data-id="${t.id}">Nicht gemacht</button><button class="btn ghost due-edit" data-id="${t.id}">Fälligkeit ändern</button></div></div>`;
-  }
-
-  function priceHistory(t){
-    const hist=state.history.filter(h=>h.taskId===t.id).slice(-5).reverse();
-    if(!hist.length) return '<div class="price-history">Noch kein Marktpreis vorhanden.</div>';
-    return `<div class="price-history">Letzte Preise: ${hist.map(h=>`${h.points}`).join(' · ')} Punkte</div>`;
+    const overdue=t.dueDate<todayISO();
+    const repeat=t.intervalDays?`alle ${t.intervalDays} Tage`:'einmalig';
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div><h3>${esc(t.name)}</h3><div class="meta"><span>fällig ${fmtDate(t.dueDate)}</span><span>${repeat}</span></div></div>
+        <span class="pill ${overdue?'overdue':'due'}">${overdue?'Überfällig':'Heute fällig'}</span>
+      </div>
+      <div class="points-box"><div class="hint">Wert der Aufgabe</div><div class="points-value">${t.points} Punkte</div></div>
+      <div class="actions">
+        <button class="btn complete" data-id="${t.id}" data-player="Sarah">Sarah erledigt</button>
+        <button class="btn complete" data-id="${t.id}" data-player="Marcel">Marcel erledigt</button>
+        <button class="btn ghost due-edit" data-id="${t.id}">Fälligkeit ändern</button>
+      </div>
+    </div>`;
   }
 
   function renderTasks(){
     const wrap=$('#taskList');
-    if(!state.tasks.length){ wrap.innerHTML='<div class="empty"><strong>Noch keine Aufgaben.</strong>Lege die erste Markt- oder exklusive Aufgabe an.</div>'; return; }
-    wrap.innerHTML=state.tasks.slice().sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).map(t=>{
-      const type=t.type==='market'?'Marktaufgabe':`Exklusiv · ${esc(t.owner)} · ${t.fixedPrice} P`;
-      const auctionInfo=t.type==='market'?`<span>Auktion ab ${fmtDate(auctionStartDate(t))}</span>`:'';
-      return `<div class="task-row"><div class="left"><h3>${esc(t.name)}</h3><div class="meta"><span>${type}</span><span>alle ${t.intervalDays} Tage</span><span>fällig ${fmtDate(t.dueDate)}</span>${auctionInfo}</div></div><div class="row-actions"><button class="btn ghost small due-edit" data-id="${t.id}">Datum</button><button class="btn ghost small edit-task" data-id="${t.id}">Bearbeiten</button><button class="btn danger small delete-task" data-id="${t.id}">Löschen</button></div></div>`;
+    if(!state.tasks.length){ wrap.innerHTML='<div class="empty"><strong>Noch keine Aufgaben.</strong>Lege eure erste Aufgabe mit einem festen Punktwert an.</div>'; return; }
+    wrap.innerHTML=state.tasks.slice().sort((a,b)=>a.name.localeCompare(b.name,'de',{sensitivity:'base'})).map(t=>{
+      const repeat=t.intervalDays?`alle ${t.intervalDays} Tage`:'einmalig';
+      const due=t.dueDate?`fällig ${fmtDate(t.dueDate)}`:'keine Fälligkeit';
+      return `<div class="task-row"><div class="left"><h3>${esc(t.name)}</h3><div class="meta"><span class="pill points">${t.points} P</span><span>${repeat}</span><span>${due}</span></div></div><div class="row-actions"><button class="btn ghost small due-edit" data-id="${t.id}">Datum</button><button class="btn ghost small edit-task" data-id="${t.id}">Bearbeiten</button><button class="btn danger small delete-task" data-id="${t.id}">Löschen</button></div></div>`;
     }).join('');
     bindDynamic();
   }
@@ -386,70 +383,70 @@
   }
 
   function bindDynamic(){
-    $$('.auction-open').forEach(b=>b.onclick=()=>openAuction(b.dataset.id));
     $$('.due-edit').forEach(b=>b.onclick=()=>openDate(b.dataset.id));
     $$('.edit-task').forEach(b=>b.onclick=()=>openTask(b.dataset.id));
     $$('.delete-task').forEach(b=>b.onclick=()=>deleteTask(b.dataset.id));
-    $$('.bid').forEach(b=>b.onclick=()=>placeBid(b.dataset.id));
-    $$('.pass').forEach(b=>b.onclick=()=>passAuction(b.dataset.id));
-    $$('.complete').forEach(b=>b.onclick=()=>completeTask(b.dataset.id,b.dataset.player,Number(b.dataset.price)));
-    $$('.notdone-market').forEach(b=>b.onclick=()=>notDoneMarket(b.dataset.id));
-    $$('.notdone-exclusive').forEach(b=>b.onclick=()=>notDoneExclusive(b.dataset.id));
+    $$('.complete').forEach(b=>b.onclick=()=>completeTask(b.dataset.id,b.dataset.player));
   }
 
   function openTask(id=null){
     const t=id?state.tasks.find(x=>x.id===id):null;
     $('#taskDialogTitle').textContent=t?'Aufgabe bearbeiten':'Aufgabe anlegen';
-    $('#taskId').value=t?.id||''; $('#taskName').value=t?.name||''; $('#taskType').value=t?.type||'market';
-    $('#taskInterval').value=t?.intervalDays||7; $('#taskDue').value=t?.dueDate||todayISO(); $('#taskOwner').value=t?.owner||'Sarah'; $('#taskPrice').value=t?.fixedPrice??10;
-    toggleExclusive(); $('#taskDialog').showModal();
+    $('#taskId').value=t?.id||'';
+    $('#taskName').value=t?.name||'';
+    $('#taskPoints').value=t?.points??10;
+    $('#taskInterval').value=t?.intervalDays??'';
+    $('#taskDue').value=t?.dueDate||'';
+    $('#taskDialog').showModal();
   }
-  function toggleExclusive(){ const on=$('#taskType').value==='exclusive'; $('#exclusiveOwnerLabel').style.display=on?'flex':'none'; $('#exclusivePriceLabel').style.display=on?'flex':'none'; }
-  $('#taskType').onchange=toggleExclusive;
   $('#addTaskBtn').onclick=()=>openTask();
   $('#saveTaskBtn').onclick=e=>{
     e.preventDefault();
-    const name=$('#taskName').value.trim(), interval=Number($('#taskInterval').value), due=$('#taskDue').value, type=$('#taskType').value;
-    if(!name||!Number.isInteger(interval)||interval<1||!due) return alert('Bitte alle Pflichtfelder korrekt ausfüllen.');
+    const name=$('#taskName').value.trim();
+    const points=Number($('#taskPoints').value);
+    const intervalRaw=$('#taskInterval').value.trim();
+    const interval=intervalRaw===''?null:Number(intervalRaw);
+    const due=$('#taskDue').value||null;
+    if(!name || !Number.isInteger(points) || points<0) return alert('Bitte Name und einen ganzen Punktwert ab 0 eintragen.');
+    if(interval!==null && (!Number.isInteger(interval)||interval<1)) return alert('Das Intervall muss leer sein oder aus einer ganzen Zahl ab 1 bestehen.');
     const id=$('#taskId').value;
-    const payload={name,type,intervalDays:interval,dueDate:due,owner:type==='exclusive'?$('#taskOwner').value:null,fixedPrice:type==='exclusive'?Number($('#taskPrice').value):null};
-    if(type==='exclusive' && (!Number.isInteger(payload.fixedPrice)||payload.fixedPrice<0)) return alert('Der Referenzpreis muss eine ganze Zahl ab 0 sein.');
-    if(id){ const t=state.tasks.find(x=>x.id===id); Object.assign(t,payload); if(type==='exclusive'){t.auction=null;t.assignment=null;} }
-    else state.tasks.push({id:uid(),...payload,auction:null,assignment:null,lastCompleted:null});
+    const payload={name,points,intervalDays:interval,dueDate:due};
+    if(id){ const t=state.tasks.find(x=>x.id===id); Object.assign(t,payload); }
+    else state.tasks.push({id:uid(),...payload,lastCompleted:null});
     $('#taskDialog').close(); save();
   };
 
-  function openDate(id){ const t=state.tasks.find(x=>x.id===id); $('#dateTaskId').value=id; $('#newDueDate').value=t.dueDate; $('#dateDialog').showModal(); }
-  $('#saveDateBtn').onclick=e=>{ e.preventDefault(); const t=state.tasks.find(x=>x.id===$('#dateTaskId').value), d=$('#newDueDate').value; if(!d)return; t.dueDate=d; $('#dateDialog').close(); save(); };
-
-  function openAuction(id){ const t=state.tasks.find(x=>x.id===id); $('#auctionTaskId').value=id; $('#auctionTaskName').textContent=t.name; $('#auctionStarter').value='Sarah'; $('#auctionStartBid').value='10'; $('#auctionDialog').showModal(); }
-  $('#startAuctionBtn').onclick=e=>{ e.preventDefault(); const t=state.tasks.find(x=>x.id===$('#auctionTaskId').value), starter=$('#auctionStarter').value, bid=Number($('#auctionStartBid').value); if(!Number.isInteger(bid)||bid<0)return alert('Das Gebot muss eine ganze Zahl ab 0 sein.'); t.auction={currentBid:bid,lastBidder:starter,startedAt:new Date().toISOString()}; t.assignment=null; $('#auctionDialog').close(); save(); };
-
-  function placeBid(id){
-    const t=state.tasks.find(x=>x.id===id), a=t.auction, input=document.querySelector(`.next-bid[data-id="${id}"]`), bid=Number(input.value);
-    if(!Number.isInteger(bid)||bid<0||bid>=a.currentBid) return alert(`Das neue Gebot muss eine ganze Zahl zwischen 0 und ${a.currentBid-1} sein.`);
-    a.currentBid=bid; a.lastBidder=other(a.lastBidder); save();
+  function openDate(id){
+    const t=state.tasks.find(x=>x.id===id); $('#dateTaskId').value=id; $('#newDueDate').value=t.dueDate||''; $('#dateDialog').showModal();
   }
-  function passAuction(id){ const t=state.tasks.find(x=>x.id===id), a=t.auction; t.assignment={player:a.lastBidder,price:a.currentBid,assignedAt:new Date().toISOString()}; t.auction=null; save(); }
+  $('#saveDateBtn').onclick=e=>{
+    e.preventDefault(); const t=state.tasks.find(x=>x.id===$('#dateTaskId').value); t.dueDate=$('#newDueDate').value||null; $('#dateDialog').close(); save();
+  };
+  $('#clearDateBtn').onclick=()=>{
+    const t=state.tasks.find(x=>x.id===$('#dateTaskId').value); if(!t)return; t.dueDate=null; $('#dateDialog').close(); save();
+  };
 
-  function completeTask(id, player, points){
-    const t=state.tasks.find(x=>x.id===id); const completed=todayISO();
+  function completeTask(id, player){
+    const t=state.tasks.find(x=>x.id===id); if(!t)return;
+    const completed=todayISO(), points=t.points;
     state.balances[player]+=points; state.balances[other(player)]-=points;
-    state.history.push({id:uid(),taskId:t.id,taskName:t.name,player,points,completedDate:completed,type:t.type});
-    t.lastCompleted=completed; t.dueDate=addDays(completed,t.intervalDays); t.assignment=null; t.auction=null; save();
+    state.history.push({id:uid(),taskId:t.id,taskName:t.name,player,points,completedDate:completed});
+    t.lastCompleted=completed;
+    t.dueDate=t.intervalDays?addDays(completed,t.intervalDays):null;
+    save();
   }
-  function notDoneMarket(id){ const t=state.tasks.find(x=>x.id===id); t.assignment=null; t.auction=null; save(); }
-  function notDoneExclusive(id){ const t=state.tasks.find(x=>x.id===id); t.assignment=null; t.auction=null; save(); }
 
-  function deleteTask(id){ const t=state.tasks.find(x=>x.id===id); if(confirm(`„${t.name}“ wirklich löschen? Der bisherige Verlauf bleibt erhalten.`)){ state.tasks=state.tasks.filter(x=>x.id!==id); save(); } }
+  function deleteTask(id){
+    const t=state.tasks.find(x=>x.id===id); if(t && confirm(`„${t.name}“ wirklich löschen? Der bisherige Verlauf bleibt erhalten.`)){ state.tasks=state.tasks.filter(x=>x.id!==id); save(); }
+  }
 
   $('#exportBtn').onclick=()=>{
-    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='haushaltsmarkt-backup.json'; a.click(); URL.revokeObjectURL(a.href);
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='unser-haushalt-backup.json'; a.click(); URL.revokeObjectURL(a.href);
   };
   $('#importBtn').onclick=()=>$('#importFile').click();
   $('#importFile').onchange=async e=>{
     const file=e.target.files[0]; if(!file)return;
-    try{ const data=JSON.parse(await file.text()); if(!data.tasks||!data.balances||!data.history)throw new Error(); state=data; save(); alert('Daten importiert.'); }catch{ alert('Die Datei ist kein gültiges Haushaltsmarkt-Backup.'); } e.target.value='';
+    try{ const data=JSON.parse(await file.text()); if(!data.tasks||!data.balances||!data.history)throw new Error(); state=normalizeState(data); save(); alert('Daten importiert.'); }catch{ alert('Die Datei ist kein gültiges Unser-Haushalt-Backup.'); } e.target.value='';
   };
 
   function openSyncDialog(){
@@ -471,7 +468,7 @@
 
   $$('nav button').forEach(b=>b.onclick=()=>{ $$('nav button').forEach(x=>x.classList.toggle('active',x===b)); $$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${b.dataset.page}`)); });
 
-  render();
+  save({remote:false});
   if(syncConfig) connectSync({quiet:true});
 })();
 </script>
