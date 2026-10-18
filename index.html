@@ -4,6 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f7f2" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Unser Haushalt" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon-64.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <title>Unser Haushalt</title>
   <style>
     :root{
@@ -19,6 +25,7 @@
     .app{max-width:980px;margin:0 auto;min-height:100vh;padding:24px 18px 100px}
     header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}
     h1{font-size:clamp(29px,6vw,48px);letter-spacing:-.045em;margin:0;line-height:.95}
+    .brand-title{display:flex;align-items:center;gap:12px}.brand-icon{width:48px;height:48px;border-radius:13px;box-shadow:0 5px 14px rgba(28,34,29,.12);flex:none}
     .subtitle{color:var(--muted);margin-top:8px}
     .header-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
     .score-mini{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:10px 14px;white-space:nowrap;box-shadow:var(--shadow);font-weight:700}
@@ -26,7 +33,7 @@
     .sync-pill.online{background:var(--accent-soft);color:var(--accent);border-color:#cde0d5}
     .sync-pill.syncing{background:var(--warn-soft);color:var(--warn)}
     .sync-pill.error{background:var(--danger-soft);color:var(--danger)}
-    nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:24px;position:sticky;top:8px;z-index:5;background:rgba(247,247,242,.9);backdrop-filter:blur(12px);padding:8px;border-radius:18px}
+    nav{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px;position:sticky;top:8px;z-index:5;background:rgba(247,247,242,.9);backdrop-filter:blur(12px);padding:8px;border-radius:18px}
     nav button{border:0;background:transparent;border-radius:12px;padding:11px 8px;color:var(--muted);font-weight:700}
     nav button.active{background:var(--panel);color:var(--ink);box-shadow:0 4px 16px rgba(28,34,29,.07)}
     .page{display:none}.page.active{display:block}
@@ -37,6 +44,7 @@
     .btn.ghost{background:#f1f2ed;color:var(--ink)}
     .btn.warn{background:var(--warn-soft);color:var(--warn)}
     .btn.danger{background:var(--danger-soft);color:var(--danger)}
+    .btn.install{background:#f3e7b8;color:#6f5310;border:1px solid #e4cf7b}
     .btn.small{padding:8px 10px;font-size:14px}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
@@ -54,6 +62,7 @@
     .task-list{display:flex;flex-direction:column;gap:10px}
     .task-row{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;display:flex;align-items:center;justify-content:space-between;gap:12px}
     .task-row .left{min-width:0}.task-row h3{margin:0;font-size:17px}.task-row .meta{margin:4px 0 0}
+    .favorite-toggle{border:0;border-radius:10px;padding:8px 10px;background:#f1f2ed;color:#858b83;font-size:18px;line-height:1}.favorite-toggle.active{background:#fff0c9;color:#c88600}.favorite-note{margin:0 0 14px;color:var(--muted);font-size:14px;line-height:1.45}.check-label{flex-direction:row;align-items:center;gap:9px}.check-label input{width:auto;accent-color:var(--accent)}
     .row-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
     .balance-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
     .balance-card{padding:22px}.balance-card .name{color:var(--muted);font-weight:800}.balance{font-size:45px;font-weight:900;letter-spacing:-.05em;margin-top:8px}
@@ -82,15 +91,16 @@
 <div class="app">
   <header>
     <div>
-      <h1>Unser Haushalt</h1>
+      <div class="brand-title"><img class="brand-icon" src="./icon-192.png" alt=""><h1>Unser Haushalt</h1></div>
       <div class="subtitle">Sarah & Marcel · Aufgaben, Punkte und gemeinsamer Saldo.</div>
     </div>
-    <div class="header-right"><button class="sync-pill" id="syncStatus" type="button">● Lokal</button><div class="score-mini" id="scoreMini">Saldo 0</div></div>
+    <div class="header-right"><button class="btn install small" id="installBtn" type="button">Installieren</button><button class="sync-pill" id="syncStatus" type="button">● Lokal</button><div class="score-mini" id="scoreMini">Saldo 0</div></div>
   </header>
 
   <nav>
     <button class="active" data-page="today">Heute</button>
     <button data-page="tasks">Aufgaben</button>
+    <button data-page="favorites">Favoriten</button>
     <button data-page="balance">Saldo</button>
     <button data-page="history">Verlauf</button>
   </nav>
@@ -99,6 +109,13 @@
     <section id="page-today" class="page active">
       <div class="section-head"><h2>Heute</h2><span class="pill" id="todayDate"></span></div>
       <div id="todayGrid" class="grid"></div>
+    </section>
+
+
+    <section id="page-favorites" class="page">
+      <div class="section-head"><h2>Favoriten</h2></div>
+      <p class="favorite-note">Favoriten kannst du jederzeit bestätigen – auch mehrmals am selben Tag. Bei Aufgaben mit Intervall startet die nächste Fälligkeit nach jeder Bestätigung neu.</p>
+      <div id="favoritesGrid" class="grid"></div>
     </section>
 
     <section id="page-tasks" class="page">
@@ -132,7 +149,7 @@
     </section>
   </main>
 
-  <footer id="footerStatus">V0.4 · Firebase-Synchronisation.</footer>
+  <footer id="footerStatus">V0.5 · Firebase-Synchronisation · installierbare PWA.</footer>
 </div>
 
 <dialog id="taskDialog">
@@ -143,6 +160,7 @@
       <label>Punkte<input id="taskPoints" type="number" min="0" step="1" value="10" required></label>
       <label>Intervall in Tagen <span class="hint">optional · leer = einmalig</span><input id="taskInterval" type="number" min="1" step="1" placeholder="z. B. 7"></label>
       <label class="full">Nächste Fälligkeit <span class="hint">optional</span><input id="taskDue" type="date"></label>
+      <label class="full check-label"><input id="taskFavorite" type="checkbox"> Als Favorit anzeigen</label>
     </div>
     <input type="hidden" id="taskId">
     <div class="modal-actions"><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" id="saveTaskBtn" value="default">Speichern</button></div>
@@ -176,6 +194,23 @@
       <div style="display:flex;gap:8px"><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" type="button" id="connectSyncBtn">Verbinden</button></div>
     </div>
   </form>
+</dialog>
+
+
+<dialog id="installDialog">
+  <div class="modal">
+    <h2>Unser Haushalt installieren</h2>
+    <p class="hint">Wenn dein Browser keine direkte Installationsabfrage anbietet, kannst du die App trotzdem zum Startbildschirm hinzufügen.</p>
+    <div class="card" style="box-shadow:none;margin-top:12px">
+      <strong>iPhone / iPad (Safari)</strong>
+      <p class="hint">Teilen-Symbol öffnen → „Zum Home-Bildschirm“ → „Hinzufügen“.</p>
+    </div>
+    <div class="card" style="box-shadow:none;margin-top:10px">
+      <strong>Android (Chrome)</strong>
+      <p class="hint">Browser-Menü öffnen → „App installieren“ oder „Zum Startbildschirm hinzufügen“.</p>
+    </div>
+    <div class="modal-actions"><button class="btn" type="button" id="closeInstallDialog">Verstanden</button></div>
+  </div>
 </dialog>
 
 <script type="module">
@@ -241,7 +276,7 @@ const db = getFirestore(app);
       return {
         id:t.id||uid(), name:String(t.name||'Aufgabe'), points,
         intervalDays:Number.isInteger(interval)&&interval>0?interval:null,
-        dueDate:t.dueDate||null, lastCompleted:t.lastCompleted||null
+        dueDate:t.dueDate||null, lastCompleted:t.lastCompleted||null, favorite:Boolean(t.favorite)
       };
     }):[];
     return base;
@@ -290,15 +325,15 @@ const db = getFirestore(app);
     if(syncRuntime.online){
       $('#syncHint').textContent=`Mit Firebase verbunden · Raum ${roomCode.slice(0,6)}… · Änderungen werden automatisch synchronisiert.`;
       $('#syncSettingsBtn').textContent='Sync-Einstellungen';
-      $('#footerStatus').textContent='V0.4 · Firebase-Synchronisation aktiv · lokale Sicherung bleibt erhalten.';
+      $('#footerStatus').textContent='V0.5 · Firebase-Synchronisation aktiv · PWA bereit.';
     }else if(syncRuntime.lastError){
       $('#syncHint').textContent=`Firebase-Fehler: ${syncRuntime.lastError}`;
       $('#syncSettingsBtn').textContent='Verbindung prüfen';
-      $('#footerStatus').textContent='V0.4 · Lokale Sicherung aktiv · Firebase derzeit nicht verbunden.';
+      $('#footerStatus').textContent='V0.5 · Lokale Sicherung aktiv · Firebase derzeit nicht verbunden.';
     }else{
       $('#syncHint').textContent=roomCode ? `Raumcode vorhanden (${roomCode.slice(0,6)}…). Noch nicht mit Firebase verbunden.` : 'Firebase ist bereit. Für den gemeinsamen Stand braucht ihr denselben Raumcode.';
       $('#syncSettingsBtn').textContent='Firebase verbinden';
-      $('#footerStatus').textContent='V0.4 · Lokale Speicherung aktiv · Firebase bereit.';
+      $('#footerStatus').textContent='V0.5 · Lokale Speicherung aktiv · Firebase bereit.';
     }
   }
 
@@ -459,7 +494,7 @@ const db = getFirestore(app);
   }
 
   function isDue(task){ return !!task.dueDate && task.dueDate<=todayISO(); }
-  function render(){ renderHeader(); renderToday(); renderTasks(); renderBalances(); renderHistory(); if(syncRuntime.online) setSyncStatus(syncRuntime.pushing?'syncing':'online',syncRuntime.pushing?'● Sync…':'● Online'); else if(syncRuntime.lastError) setSyncStatus('error','● Sync-Fehler'); else setSyncStatus('','● Lokal'); }
+  function render(){ renderHeader(); renderToday(); renderFavorites(); renderTasks(); renderBalances(); renderHistory(); if(syncRuntime.online) setSyncStatus(syncRuntime.pushing?'syncing':'online',syncRuntime.pushing?'● Sync…':'● Online'); else if(syncRuntime.lastError) setSyncStatus('error','● Sync-Fehler'); else setSyncStatus('','● Lokal'); }
   function renderHeader(){
     $('#todayDate').textContent = fmtDate(todayISO());
     const m=state.balances.Marcel;
@@ -491,13 +526,39 @@ const db = getFirestore(app);
     </div>`;
   }
 
+  function renderFavorites(){
+    const container=$('#favoritesGrid');
+    const favorites=state.tasks.filter(t=>t.favorite).sort((a,b)=>a.name.localeCompare(b.name,'de',{sensitivity:'base'}));
+    if(!favorites.length){
+      container.innerHTML='<div class="empty" style="grid-column:1/-1"><strong>Noch keine Favoriten.</strong>Markiere im Bereich Aufgaben eine Aufgabe mit dem Stern.</div>';
+      return;
+    }
+    container.innerHTML=favorites.map(favoriteCard).join('');
+    bindDynamic();
+  }
+
+  function favoriteCard(t){
+    const repeat=t.intervalDays?`alle ${t.intervalDays} Tage`:'ohne Intervall';
+    const due=t.dueDate?`nächste Fälligkeit ${fmtDate(t.dueDate)}`:'keine Fälligkeit';
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div><h3>★ ${esc(t.name)}</h3><div class="meta"><span>${repeat}</span><span>${due}</span></div></div>
+        <span class="pill points">${t.points} P</span>
+      </div>
+      <div class="actions">
+        <button class="btn complete" data-id="${t.id}" data-player="Sarah">Sarah erledigt</button>
+        <button class="btn complete" data-id="${t.id}" data-player="Marcel">Marcel erledigt</button>
+      </div>
+    </div>`;
+  }
+
   function renderTasks(){
     const wrap=$('#taskList');
     if(!state.tasks.length){ wrap.innerHTML='<div class="empty"><strong>Noch keine Aufgaben.</strong>Lege eure erste Aufgabe mit einem festen Punktwert an.</div>'; return; }
     wrap.innerHTML=state.tasks.slice().sort((a,b)=>a.name.localeCompare(b.name,'de',{sensitivity:'base'})).map(t=>{
       const repeat=t.intervalDays?`alle ${t.intervalDays} Tage`:'einmalig';
       const due=t.dueDate?`fällig ${fmtDate(t.dueDate)}`:'keine Fälligkeit';
-      return `<div class="task-row"><div class="left"><h3>${esc(t.name)}</h3><div class="meta"><span class="pill points">${t.points} P</span><span>${repeat}</span><span>${due}</span></div></div><div class="row-actions"><button class="btn ghost small due-edit" data-id="${t.id}">Datum</button><button class="btn ghost small edit-task" data-id="${t.id}">Bearbeiten</button><button class="btn danger small delete-task" data-id="${t.id}">Löschen</button></div></div>`;
+      return `<div class="task-row"><div class="left"><h3>${esc(t.name)}</h3><div class="meta"><span class="pill points">${t.points} P</span><span>${repeat}</span><span>${due}</span>${t.favorite?'<span class="pill">Favorit</span>':''}</div></div><div class="row-actions"><button class="favorite-toggle ${t.favorite?'active':''}" data-id="${t.id}" title="${t.favorite?'Favorit entfernen':'Als Favorit markieren'}" aria-label="${t.favorite?'Favorit entfernen':'Als Favorit markieren'}">★</button><button class="btn ghost small due-edit" data-id="${t.id}">Datum</button><button class="btn ghost small edit-task" data-id="${t.id}">Bearbeiten</button><button class="btn danger small delete-task" data-id="${t.id}">Löschen</button></div></div>`;
     }).join('');
     bindDynamic();
   }
@@ -520,6 +581,7 @@ const db = getFirestore(app);
     $$('.due-edit').forEach(b=>b.onclick=()=>openDate(b.dataset.id));
     $$('.edit-task').forEach(b=>b.onclick=()=>openTask(b.dataset.id));
     $$('.delete-task').forEach(b=>b.onclick=()=>deleteTask(b.dataset.id));
+    $$('.favorite-toggle').forEach(b=>b.onclick=()=>toggleFavorite(b.dataset.id));
     $$('.complete').forEach(b=>b.onclick=()=>completeTask(b.dataset.id,b.dataset.player));
   }
 
@@ -531,6 +593,7 @@ const db = getFirestore(app);
     $('#taskPoints').value=t?.points??10;
     $('#taskInterval').value=t?.intervalDays??'';
     $('#taskDue').value=t?.dueDate||'';
+    $('#taskFavorite').checked=Boolean(t?.favorite);
     $('#taskDialog').showModal();
   }
   $('#addTaskBtn').onclick=()=>openTask();
@@ -544,7 +607,8 @@ const db = getFirestore(app);
     if(!name || !Number.isInteger(points) || points<0) return alert('Bitte Name und einen ganzen Punktwert ab 0 eintragen.');
     if(interval!==null && (!Number.isInteger(interval)||interval<1)) return alert('Das Intervall muss leer sein oder aus einer ganzen Zahl ab 1 bestehen.');
     const id=$('#taskId').value;
-    const payload={name,points,intervalDays:interval,dueDate:due};
+    const favorite=$('#taskFavorite').checked;
+    const payload={name,points,intervalDays:interval,dueDate:due,favorite};
     if(id){ const t=state.tasks.find(x=>x.id===id); Object.assign(t,payload); }
     else state.tasks.push({id:uid(),...payload,lastCompleted:null});
     $('#taskDialog').close(); save();
@@ -567,6 +631,14 @@ const db = getFirestore(app);
     state.history.push({id:uid(),taskId:t.id,taskName:t.name,player,points,completedDate:completed});
     t.lastCompleted=completed;
     t.dueDate=t.intervalDays?addDays(completed,t.intervalDays):null;
+    save();
+  }
+
+
+  function toggleFavorite(id){
+    const t=state.tasks.find(x=>x.id===id);
+    if(!t) return;
+    t.favorite=!t.favorite;
     save();
   }
 
@@ -601,6 +673,29 @@ const db = getFirestore(app);
     await connectSync();
   };
   $('#disableSyncBtn').onclick=()=>{ syncRuntime.online=false; syncRuntime.revision=null; syncRuntime.dirty=false; syncRuntime.lastError=null; stopListening(); setRoomCode(''); $('#syncDialog').close(); render(); };
+
+
+  let deferredInstallPrompt=null;
+  const isStandalone=()=>window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+  function updateInstallButton(){ $('#installBtn').hidden=isStandalone(); }
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredInstallPrompt=e; updateInstallButton(); });
+  window.addEventListener('appinstalled',()=>{ deferredInstallPrompt=null; updateInstallButton(); });
+  $('#installBtn').onclick=async()=>{
+    if(isStandalone()) return;
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      try{ await deferredInstallPrompt.userChoice; }catch{}
+      deferredInstallPrompt=null;
+      updateInstallButton();
+    }else{
+      $('#installDialog').showModal();
+    }
+  };
+  $('#closeInstallDialog').onclick=()=>$('#installDialog').close();
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('Service Worker konnte nicht registriert werden:',err)));
+  }
+  updateInstallButton();
 
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && syncRuntime.online) pullRemote(); });
   window.addEventListener('online',()=>{ if(roomCode && !syncRuntime.online) connectSync({quiet:true}); else if(syncRuntime.online) pullRemote(); });
