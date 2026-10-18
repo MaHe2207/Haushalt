@@ -106,8 +106,8 @@
       <div id="taskList" class="task-list"></div>
       <div class="card sync-card">
         <div class="sync-row">
-          <div><strong>Gemeinsamer Spielstand</strong><p class="hint" id="syncHint" style="margin:5px 0 0">Aktuell nur auf diesem Gerät gespeichert.</p></div>
-          <button class="btn secondary small" id="syncSettingsBtn">Online-Sync einrichten</button>
+          <div><strong>Gemeinsamer Spielstand</strong><p class="hint" id="syncHint" style="margin:5px 0 0">Firebase ist bereit. Für den gemeinsamen Stand braucht ihr denselben Raumcode.</p></div>
+          <button class="btn secondary small" id="syncSettingsBtn">Firebase verbinden</button>
         </div>
       </div>
       <div class="danger-zone">
@@ -132,7 +132,7 @@
     </section>
   </main>
 
-  <footer id="footerStatus">V0.3 · Lokale Speicherung aktiv.</footer>
+  <footer id="footerStatus">V0.4 · Firebase-Synchronisation.</footer>
 </div>
 
 <dialog id="taskDialog">
@@ -161,32 +161,47 @@
 
 <dialog id="syncDialog">
   <form method="dialog" class="modal" id="syncForm">
-    <h2>Online-Synchronisation</h2>
-    <p class="hint">Trage auf Sarahs und Marcels Geräten dieselben Supabase-Daten und denselben privaten Raumcode ein. Verwende den Publishable Key (empfohlen) oder den alten anon-Key, niemals einen Secret- oder service_role-Key.</p>
+    <h2>Firebase-Synchronisation</h2>
+    <p class="hint">Die Firebase-Verbindung ist bereits in dieser App eingerichtet. Sarah und Marcel müssen nur denselben privaten Raumcode verwenden. Die Anmeldung bei Firebase erfolgt automatisch und anonym.</p>
     <div class="modal-grid">
-      <label class="full">Supabase Project URL<input id="syncUrl" type="url" placeholder="https://xyz.supabase.co"></label>
-      <label class="full">Publishable Key / legacy anon Key<input id="syncKey" type="password" autocomplete="off" placeholder="sb_publishable_… oder eyJ…"></label>
       <div class="full code-row">
         <label>Privater Raumcode<input id="syncRoom" autocomplete="off" maxlength="80" placeholder="Auf beiden Geräten identisch"></label>
         <button class="btn ghost small" type="button" id="generateRoomBtn">Neu</button>
         <button class="btn ghost small" type="button" id="copyRoomBtn">Kopieren</button>
       </div>
     </div>
-    <p class="hint" id="syncDialogHint">Beim ersten Verbinden wird euer lokaler Spielstand hochgeladen, sofern der Raum online noch leer ist. Existiert bereits ein Spielstand, wird dieser geladen.</p>
+    <p class="hint" id="syncDialogHint">Wenn der Raum in Firebase noch nicht existiert, wird der lokale Spielstand hochgeladen. Existiert er bereits, wird der vorhandene Online-Spielstand geladen.</p>
     <div class="modal-actions" style="justify-content:space-between">
-      <button class="btn danger" type="button" id="disableSyncBtn">Nur lokal</button>
+      <button class="btn danger" type="button" id="disableSyncBtn">Raum verlassen</button>
       <div style="display:flex;gap:8px"><button class="btn ghost" value="cancel">Abbrechen</button><button class="btn" type="button" id="connectSyncBtn">Verbinden</button></div>
     </div>
   </form>
 </dialog>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBtcM2Lo6h9C1ZPGqGEhHV-FXv76jcOCns",
+  authDomain: "unser-haushalt-27e8d.firebaseapp.com",
+  projectId: "unser-haushalt-27e8d",
+  storageBucket: "unser-haushalt-27e8d.firebasestorage.app",
+  messagingSenderId: "235802335040",
+  appId: "1:235802335040:web:d3f6eb894738fe54fe8ca5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
 (() => {
   const PLAYERS = ['Sarah','Marcel'];
-  // Absichtlich dieselben Storage-Keys wie V0.2: bestehende Geräte behalten Sync-Zugang und Spielstand.
+  // Der Spielstand-Schlüssel bleibt gleich, damit die bestehende lokale V0.3-Datenbasis erhalten bleibt.
   const STORAGE_KEY = 'haushaltsmarkt_v01';
-  const SYNC_CONFIG_KEY = 'haushaltsmarkt_sync_v02';
-  const SYNC_POLL_MS = 4000;
+  const ROOM_KEY = 'unser_haushalt_firebase_room_v04';
+  const LEGACY_SYNC_CONFIG_KEY = 'haushaltsmarkt_sync_v02';
   const $ = s => document.querySelector(s);
   const $$ = s => [...document.querySelectorAll(s)];
   const todayISO = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
@@ -237,9 +252,23 @@
     catch{ return defaultState(); }
   }
 
+  function loadRoomCode(){
+    const own=(localStorage.getItem(ROOM_KEY)||'').trim();
+    if(own) return own;
+    try{
+      const legacy=JSON.parse(localStorage.getItem(LEGACY_SYNC_CONFIG_KEY));
+      const room=(legacy?.room||'').trim();
+      if(room){
+        localStorage.setItem(ROOM_KEY,room);
+        return room;
+      }
+    }catch{}
+    return '';
+  }
+
   let state = load();
-  let syncConfig = loadSyncConfig();
-  const syncRuntime = { online:false, revision:null, pushing:false, dirty:false, timer:null, lastError:null };
+  let roomCode = loadRoomCode();
+  const syncRuntime = { online:false, revision:null, pushing:false, dirty:false, unsubscribe:null, lastError:null };
 
   function save({remote=true}={}){
     state=normalizeState(state);
@@ -247,81 +276,186 @@
     render();
     if(remote && syncRuntime.online) queueRemotePush();
   }
-  function loadSyncConfig(){
-    try{ const x=JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)); return x && x.url && x.key && x.room ? x : null; }catch{ return null; }
+
+  function setRoomCode(room){
+    roomCode=room.trim();
+    if(roomCode) localStorage.setItem(ROOM_KEY,roomCode);
+    else localStorage.removeItem(ROOM_KEY);
   }
-  function persistSyncConfig(){ if(syncConfig) localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig)); else localStorage.removeItem(SYNC_CONFIG_KEY); }
-  function cleanUrl(url){ return String(url||'').trim().replace(/\/+$/,''); }
-  function syncHeaders(){ return { 'apikey':syncConfig.key, 'Content-Type':'application/json', 'Accept':'application/json', 'x-household-room':syncConfig.room }; }
-  function roomEndpoint(extra=''){ return `${syncConfig.url}/rest/v1/household_games${extra}`; }
+
+  function validRoom(room){ return /^[A-Za-z0-9_-]{12,80}$/.test(room); }
+
   function setSyncStatus(mode,text){
     const el=$('#syncStatus'); el.className='sync-pill '+(mode||''); el.textContent=text;
-    $('#syncHint').textContent = syncRuntime.online ? `Online verbunden · Raum ${syncConfig.room.slice(0,6)}… · automatische Aktualisierung` : 'Aktuell nur auf diesem Gerät gespeichert.';
-    $('#syncSettingsBtn').textContent = syncRuntime.online ? 'Sync-Einstellungen' : 'Online-Sync einrichten';
-    $('#footerStatus').textContent = syncRuntime.online ? 'V0.3 · Gemeinsamer Spielstand aktiv · lokale Sicherung bleibt erhalten.' : 'V0.3 · Lokale Speicherung aktiv.';
-  }
-  function generateRoomCode(){ const a=new Uint8Array(16); crypto.getRandomValues(a); return [...a].map(x=>x.toString(16).padStart(2,'0')).join(''); }
-
-  async function apiFetch(url, options={}){
-    const res=await fetch(url,{...options,headers:{...syncHeaders(),...(options.headers||{})}});
-    const text=await res.text(); let data=null;
-    if(text){ try{ data=JSON.parse(text); }catch{ data=text; } }
-    if(!res.ok){ const msg=(data && (data.message||data.hint||data.details)) || `HTTP ${res.status}`; throw new Error(msg); }
-    return data;
-  }
-  async function fetchRemoteRow(){
-    const q=`?room_id=eq.${encodeURIComponent(syncConfig.room)}&select=room_id,state,revision,updated_at`;
-    const rows=await apiFetch(roomEndpoint(q)); return Array.isArray(rows)&&rows.length?rows[0]:null;
-  }
-  async function createRemoteRow(){
-    const rows=await apiFetch(roomEndpoint(),{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({room_id:syncConfig.room,state,revision:0})});
-    return Array.isArray(rows)&&rows.length?rows[0]:null;
-  }
-  async function connectSync({quiet=false}={}){
-    if(!syncConfig) return;
-    setSyncStatus('syncing','● Verbinde…');
-    try{
-      let row=await fetchRemoteRow();
-      if(!row){
-        try{ row=await createRemoteRow(); }catch(err){ row=await fetchRemoteRow(); if(!row) throw err; }
-      }
-      if(row){ state=normalizeState(row.state); syncRuntime.revision=Number(row.revision||0); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
-      syncRuntime.online=true; syncRuntime.lastError=null; startPolling(); render(); setSyncStatus('online','● Online');
-      if(!quiet) $('#syncDialog').close();
-    }catch(err){
-      syncRuntime.online=false; syncRuntime.lastError=err.message; stopPolling(); render(); setSyncStatus('error','● Sync-Fehler');
-      if(!quiet) alert(`Verbindung fehlgeschlagen: ${err.message}`);
+    if(syncRuntime.online){
+      $('#syncHint').textContent=`Mit Firebase verbunden · Raum ${roomCode.slice(0,6)}… · Änderungen werden automatisch synchronisiert.`;
+      $('#syncSettingsBtn').textContent='Sync-Einstellungen';
+      $('#footerStatus').textContent='V0.4 · Firebase-Synchronisation aktiv · lokale Sicherung bleibt erhalten.';
+    }else if(syncRuntime.lastError){
+      $('#syncHint').textContent=`Firebase-Fehler: ${syncRuntime.lastError}`;
+      $('#syncSettingsBtn').textContent='Verbindung prüfen';
+      $('#footerStatus').textContent='V0.4 · Lokale Sicherung aktiv · Firebase derzeit nicht verbunden.';
+    }else{
+      $('#syncHint').textContent=roomCode ? `Raumcode vorhanden (${roomCode.slice(0,6)}…). Noch nicht mit Firebase verbunden.` : 'Firebase ist bereit. Für den gemeinsamen Stand braucht ihr denselben Raumcode.';
+      $('#syncSettingsBtn').textContent='Firebase verbinden';
+      $('#footerStatus').textContent='V0.4 · Lokale Speicherung aktiv · Firebase bereit.';
     }
   }
-  function startPolling(){ stopPolling(); syncRuntime.timer=setInterval(()=>{ if(document.visibilityState==='visible') pullRemote(); },SYNC_POLL_MS); }
-  function stopPolling(){ if(syncRuntime.timer) clearInterval(syncRuntime.timer); syncRuntime.timer=null; }
+
+  function generateRoomCode(){
+    const a=new Uint8Array(20); crypto.getRandomValues(a);
+    return [...a].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function ensureAuth(){
+    if(auth.currentUser) return auth.currentUser;
+    const result=await signInAnonymously(auth);
+    return result.user;
+  }
+
+  function currentRoomRef(){
+    if(!roomCode) throw new Error('Kein Raumcode gesetzt.');
+    return doc(db,'households',roomCode);
+  }
+
+  function stopListening(){
+    if(syncRuntime.unsubscribe){ syncRuntime.unsubscribe(); syncRuntime.unsubscribe=null; }
+  }
+
+  function startListening(){
+    stopListening();
+    syncRuntime.unsubscribe=onSnapshot(currentRoomRef(), snap=>{
+      if(!snap.exists()) return;
+      const data=snap.data();
+      const rev=Number(data.revision||0);
+      if(syncRuntime.revision===null){ syncRuntime.revision=rev; return; }
+      if(rev>syncRuntime.revision && !syncRuntime.pushing && !syncRuntime.dirty){
+        state=normalizeState(data.state);
+        syncRuntime.revision=rev;
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+        syncRuntime.lastError=null;
+        render();
+      }
+    }, err=>{
+      syncRuntime.lastError=err.message||String(err);
+      syncRuntime.online=false;
+      render();
+    });
+  }
+
+  async function connectSync({quiet=false}={}){
+    if(!validRoom(roomCode)){
+      if(!quiet) alert('Bitte einen Raumcode mit mindestens 12 Zeichen verwenden. Erlaubt sind Buchstaben, Zahlen, _ und -.');
+      return;
+    }
+    setSyncStatus('syncing','● Verbinde…');
+    try{
+      await ensureAuth();
+      const ref=currentRoomRef();
+      const localSnapshot=JSON.parse(JSON.stringify(state));
+      const result=await runTransaction(db, async transaction=>{
+        const snap=await transaction.get(ref);
+        if(!snap.exists()){
+          transaction.set(ref,{state:localSnapshot,revision:0,updatedAt:serverTimestamp()});
+          return {created:true,revision:0,state:localSnapshot};
+        }
+        const data=snap.data();
+        return {created:false,revision:Number(data.revision||0),state:normalizeState(data.state)};
+      });
+      if(!result.created){
+        state=normalizeState(result.state);
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+      }
+      syncRuntime.revision=result.revision;
+      syncRuntime.online=true;
+      syncRuntime.lastError=null;
+      syncRuntime.dirty=false;
+      startListening();
+      render();
+      setSyncStatus('online','● Online');
+      if(!quiet) $('#syncDialog').close();
+    }catch(err){
+      syncRuntime.online=false;
+      syncRuntime.lastError=err.message||String(err);
+      stopListening();
+      render();
+      setSyncStatus('error','● Sync-Fehler');
+      if(!quiet) alert(`Firebase-Verbindung fehlgeschlagen: ${syncRuntime.lastError}`);
+    }
+  }
+
   async function pullRemote(){
     if(!syncRuntime.online || syncRuntime.pushing || syncRuntime.dirty) return;
     try{
-      const row=await fetchRemoteRow(); if(!row) return; const rev=Number(row.revision||0);
-      if(syncRuntime.revision===null || rev>syncRuntime.revision){ state=normalizeState(row.state); syncRuntime.revision=rev; localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); render(); setSyncStatus('online','● Online'); }
-    }catch(err){ syncRuntime.lastError=err.message; setSyncStatus('error','● Sync-Fehler'); }
+      const snap=await getDoc(currentRoomRef());
+      if(!snap.exists()) return;
+      const data=snap.data(), rev=Number(data.revision||0);
+      if(syncRuntime.revision===null || rev>syncRuntime.revision){
+        state=normalizeState(data.state);
+        syncRuntime.revision=rev;
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+        syncRuntime.lastError=null;
+        render();
+      }
+    }catch(err){
+      syncRuntime.lastError=err.message||String(err);
+      render();
+    }
   }
+
   function queueRemotePush(){ syncRuntime.dirty=true; pushRemoteLoop(); }
+
   async function pushRemoteLoop(){
-    if(syncRuntime.pushing || !syncRuntime.online) return; syncRuntime.pushing=true;
+    if(syncRuntime.pushing || !syncRuntime.online) return;
+    syncRuntime.pushing=true;
     try{
       while(syncRuntime.dirty && syncRuntime.online){
-        syncRuntime.dirty=false; setSyncStatus('syncing','● Sync…');
-        const expected=Number(syncRuntime.revision||0), next=expected+1, snapshot=JSON.parse(JSON.stringify(state));
-        const q=`?room_id=eq.${encodeURIComponent(syncConfig.room)}&revision=eq.${expected}&select=room_id,state,revision,updated_at`;
-        const rows=await apiFetch(roomEndpoint(q),{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify({state:snapshot,revision:next,updated_at:new Date().toISOString()})});
-        if(!Array.isArray(rows)||rows.length===0){
-          const row=await fetchRemoteRow();
-          if(row){ state=normalizeState(row.state); syncRuntime.revision=Number(row.revision||0); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); render(); }
-          syncRuntime.dirty=false; alert('Der Spielstand wurde gleichzeitig auf dem anderen Gerät geändert. Die neuere Online-Version wurde geladen. Bitte führe deine Aktion bei Bedarf erneut aus.');
-          break;
+        syncRuntime.dirty=false;
+        setSyncStatus('syncing','● Sync…');
+        const expected=Number(syncRuntime.revision||0);
+        const snapshot=JSON.parse(JSON.stringify(state));
+        try{
+          const next=await runTransaction(db, async transaction=>{
+            const ref=currentRoomRef();
+            const snap=await transaction.get(ref);
+            if(!snap.exists()){
+              const error=new Error('Der Firebase-Raum wurde nicht gefunden.'); error.code='ROOM_MISSING'; throw error;
+            }
+            const remoteRevision=Number(snap.data().revision||0);
+            if(remoteRevision!==expected){
+              const error=new Error('Der Spielstand wurde gleichzeitig auf dem anderen Gerät geändert.'); error.code='REVISION_CONFLICT'; throw error;
+            }
+            const newRevision=expected+1;
+            transaction.update(ref,{state:snapshot,revision:newRevision,updatedAt:serverTimestamp()});
+            return newRevision;
+          });
+          syncRuntime.revision=next;
+          syncRuntime.lastError=null;
+        }catch(err){
+          if(err.code==='REVISION_CONFLICT'){
+            const snap=await getDoc(currentRoomRef());
+            if(snap.exists()){
+              const data=snap.data();
+              state=normalizeState(data.state);
+              syncRuntime.revision=Number(data.revision||0);
+              localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+              render();
+            }
+            syncRuntime.dirty=false;
+            alert('Der Spielstand wurde fast gleichzeitig auf dem anderen Gerät geändert. Die neuere Firebase-Version wurde geladen. Bitte führe deine letzte Aktion bei Bedarf erneut aus.');
+            break;
+          }
+          throw err;
         }
-        syncRuntime.revision=Number(rows[0].revision);
       }
-      syncRuntime.lastError=null; setSyncStatus('online','● Online');
-    }catch(err){ syncRuntime.lastError=err.message; setSyncStatus('error','● Sync-Fehler'); }
-    finally{ syncRuntime.pushing=false; if(syncRuntime.dirty && syncRuntime.online) pushRemoteLoop(); }
+      if(syncRuntime.online) setSyncStatus('online','● Online');
+    }catch(err){
+      syncRuntime.lastError=err.message||String(err);
+      setSyncStatus('error','● Sync-Fehler');
+    }finally{
+      syncRuntime.pushing=false;
+      if(syncRuntime.dirty && syncRuntime.online) pushRemoteLoop();
+    }
   }
 
   function isDue(task){ return !!task.dueDate && task.dueDate<=todayISO(); }
@@ -450,26 +584,31 @@
   };
 
   function openSyncDialog(){
-    $('#syncUrl').value=syncConfig?.url||''; $('#syncKey').value=syncConfig?.key||''; $('#syncRoom').value=syncConfig?.room||'';
-    $('#syncDialogHint').textContent=syncRuntime.lastError ? `Letzter Fehler: ${syncRuntime.lastError}` : 'Beim ersten Verbinden wird euer lokaler Spielstand hochgeladen, sofern der Raum online noch leer ist. Existiert bereits ein Spielstand, wird dieser geladen.';
+    $('#syncRoom').value=roomCode||'';
+    $('#syncDialogHint').textContent=syncRuntime.lastError ? `Letzter Fehler: ${syncRuntime.lastError}` : 'Wenn der Raum in Firebase noch nicht existiert, wird der lokale Spielstand hochgeladen. Existiert er bereits, wird der vorhandene Online-Spielstand geladen.';
     $('#syncDialog').showModal();
   }
   $('#syncSettingsBtn').onclick=openSyncDialog; $('#syncStatus').onclick=openSyncDialog;
   $('#generateRoomBtn').onclick=()=>{ $('#syncRoom').value=generateRoomCode(); };
   $('#copyRoomBtn').onclick=async()=>{ const v=$('#syncRoom').value.trim(); if(!v)return alert('Noch kein Raumcode vorhanden.'); try{ await navigator.clipboard.writeText(v); alert('Raumcode kopiert.'); }catch{ alert('Kopieren nicht möglich. Bitte den Raumcode manuell markieren.'); } };
   $('#connectSyncBtn').onclick=async()=>{
-    const url=cleanUrl($('#syncUrl').value), key=$('#syncKey').value.trim(), room=$('#syncRoom').value.trim();
-    if(!url || !/^https:\/\//i.test(url) || !key || room.length<12) return alert('Bitte Project URL, Publishable-/anon-Key und einen Raumcode mit mindestens 12 Zeichen eintragen.');
-    syncConfig={url,key,room}; persistSyncConfig(); await connectSync();
+    const room=$('#syncRoom').value.trim();
+    if(!validRoom(room)) return alert('Bitte einen Raumcode mit mindestens 12 Zeichen verwenden. Erlaubt sind Buchstaben, Zahlen, _ und -.');
+    if(syncRuntime.online && room!==roomCode){
+      stopListening(); syncRuntime.online=false; syncRuntime.revision=null; syncRuntime.dirty=false;
+    }
+    setRoomCode(room);
+    await connectSync();
   };
-  $('#disableSyncBtn').onclick=()=>{ syncRuntime.online=false; syncRuntime.revision=null; syncRuntime.dirty=false; syncRuntime.lastError=null; stopPolling(); syncConfig=null; persistSyncConfig(); $('#syncDialog').close(); render(); };
+  $('#disableSyncBtn').onclick=()=>{ syncRuntime.online=false; syncRuntime.revision=null; syncRuntime.dirty=false; syncRuntime.lastError=null; stopListening(); setRoomCode(''); $('#syncDialog').close(); render(); };
+
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && syncRuntime.online) pullRemote(); });
-  window.addEventListener('online',()=>{ if(syncConfig) connectSync({quiet:true}); });
+  window.addEventListener('online',()=>{ if(roomCode && !syncRuntime.online) connectSync({quiet:true}); else if(syncRuntime.online) pullRemote(); });
 
   $$('nav button').forEach(b=>b.onclick=()=>{ $$('nav button').forEach(x=>x.classList.toggle('active',x===b)); $$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${b.dataset.page}`)); });
 
   save({remote:false});
-  if(syncConfig) connectSync({quiet:true});
+  if(roomCode) connectSync({quiet:true});
 })();
 </script>
 </body>
